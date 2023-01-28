@@ -1,0 +1,7 @@
+uvicorn
+fastapi
+logzero
+python-dotenv
+pydantic
+mypy
+black

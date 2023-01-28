@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "fastapi-ml-template"
+version = "0.1.0"
+description = ""
+authors = ["Akihiro Inui <mail@akihiroinui.com>"]
+readme = "README.md"
+packages = [{include = "fastapi_ml_template"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torchvision = "^0.14.1"
+torch = "^1.13.1"
+pytorch-lightning = "^1.9.0"
+llvmlite = "^0.39.1"
+numba = "^0.56.4"
+
+
+[tool.poetry.group.ml.dependencies]
+mlflow = "^2.1.1"
+psycopg2 = "^2.9.5"
+omegaconf = "^2.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
