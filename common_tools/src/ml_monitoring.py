@@ -6,8 +6,8 @@ from typing import Optional
 
 
 class MlflowWriter:
-    def __init__(self, host: Optional[str] = None, experiment_name: str = "default"):
-        self.client = MlflowClient()
+    def __init__(self, tracking_uri: Optional[str] = None, registry_uri: Optional[str] = None, experiment_name: str = "default"):
+        self.client = MlflowClient(tracking_uri=tracking_uri, registry_uri=registry_uri)
         try:
             self.experiment_id = self.client.create_experiment(experiment_name)
         except Exception as e:
@@ -15,8 +15,6 @@ class MlflowWriter:
             self.experiment_id = self.client.get_experiment_by_name(experiment_name).experiment_id
 
         self.experiment = self.client.get_experiment(self.experiment_id)
-        if not host:
-            mlflow.set_tracking_uri("mlruns")
         print("New experiment started")
         print(f"Name: {self.experiment.name}")
         print(f"Experiment_id: {self.experiment.experiment_id}")

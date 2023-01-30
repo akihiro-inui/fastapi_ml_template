@@ -1,25 +1,37 @@
 [tool.poetry]
-name = "fastapi-ml-template"
+name = "ml_service_template"
 version = "0.1.0"
 description = ""
 authors = ["Akihiro Inui <mail@akihiroinui.com>"]
 readme = "README.md"
-packages = [{include = "fastapi_ml_template"}]
+packages = [{include = "ml"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-torchvision = "^0.14.1"
-torch = "^1.13.1"
 pytorch-lightning = "^1.9.0"
 llvmlite = "^0.39.1"
 numba = "^0.56.4"
+python-dotenv = "^0.21.1"
+logzero = "^1.7.0"
 
-
-[tool.poetry.group.ml.dependencies]
+[tool.poetry.group.mlflow.dependencies]
 mlflow = "^2.1.1"
 psycopg2 = "^2.9.5"
 omegaconf = "^2.3.0"
 
+[tool.poetry.group.cpu.dependencies]
+torchvision = "^0.14.1"
+torch = "^1.13.1"
+
+[tool.poetry.group.gpu.dependencies]
+torch = { version = "1.12.1", source="torch"}
+torchvision = { version = "0.13.1", source="torch"}
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cu116"
+secondary = true

@@ -1,4 +1,4 @@
-# Fast API for Machine Learning Model Service
+# Machine Learning Service Template
 Template for the projects with FastAPI to service predictions with Machine Learning models.
 
 This repo contains
