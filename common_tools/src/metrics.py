@@ -19,7 +19,7 @@ def mse(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     torch.Tensor
         Mean squared error between y_true and y_pred
     """
-    return F.mse_loss(y_pred, y_true)
+    return F.mse_loss(y_pred, y_true, reduction="mean")
 
 
 @torch.no_grad()

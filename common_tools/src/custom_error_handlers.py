@@ -1,4 +1,4 @@
-from api.src.utils.custom_logger import logger
+from common_tools.src.custom_logger import logger
 
 
 class BaseSystemError(Exception):
@@ -20,3 +20,12 @@ class ConfigError(Exception):
     def __init__(self, message):
         super().__init__(message)
 
+
+class ModelError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class DataSetError(Exception):
+    def __init__(self, message):
+        super().__init__(message)

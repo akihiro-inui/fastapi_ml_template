@@ -1,185 +1,123 @@
-import os
+from typing import List, Dict, Any
+
 import torch
-import torch.nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
-
 import pytorch_lightning as pl
+from pytorch_lightning.trainer.trainer import CombinedLoader
 
-from ml.src.datasets.bsds300 import BSDS300
-from ml.src.datasets.bsds100 import BSDS100
-from ml.src.datasets.set14 import Set14
-from ml.src.datasets.set5 import Set5
-from ml.src.models.cnn import SRCNN
-from common_tools.src import metrics
-import mlflow.pytorch
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_USER, MLFLOW_SOURCE_NAME
-from common_tools.src.ml_monitoring import MlflowWriter
-from common_tools.src.config_loader import load_config
+from ml.src.models.model_wrapper import ModelWrapper
+from ml.src.models.model_selector import ModelSelector
+from ml.src.datasets.dataset_selector import DatasetSelector
+from common_tools.src.file_handler import load_json_file
+from common_tools.src.config_loader import load_env_file
+from common_tools.src.custom_logger import logger
 
 
-class Module(pl.LightningModule):
-    def __init__(self, model: torch.nn.Module, experiment_name: str, use_mlflow: bool, config_file_path: str, **kwargs):
-        super().__init__()
-        load_config(config_file_path)
-        self.save_hyperparameters()
-        self.model = model
-        self.model_name = model.get_model_name()
-        self.experiment_name = experiment_name
-        self.use_mlflow = use_mlflow
-        if self.use_mlflow:
-            self._init_monitoring(**kwargs)
+class ExperimentRunner:
+    def __init__(self, env_file_path: str, config_file_path: str):
+        """
+        Load config file.
+        Initialize model wrapper and Data Loader.
+        :param env_file_path: Path to env file.
+        :param config_file_path: Path to config file.
+        """
+        # Load .env file and experiment config file
+        load_env_file(env_file_path)
+        self.config = load_json_file(config_file_path)
 
-    def _init_monitoring(self,
-                         run_name: str = "test_run",
-                         user_name: str = "test_user",
-                         source_name: str = "test_source"):
-        self.writer = MlflowWriter(tracking_uri=os.environ.get("MLFLOW_DB_URI"),
-                                   registry_uri=os.environ.get("MLFLOW_ARTIFACT_URI"),
-                                   experiment_name=self.experiment_name)
-        tags = {MLFLOW_RUN_NAME: run_name,
-                MLFLOW_USER: user_name,
-                MLFLOW_SOURCE_NAME: source_name
-                }
-        self.writer.create_new_run(tags)
-        self.model_version = self.writer.create_new_model(model_name=self.model_name, model_source="")
-        self.model_file_path = f"models/{self.model_name}/{self.model_name}-{self.model_version}.ckpt"
+        # Initialize model
+        self.model_selector = ModelSelector(self.config["dataset"]["scale_factor"])
+        self.model = self.model_selector.select_model(self.config["model"]["name"])
 
-    def forward(self, x):
-        return self.model(x)
+        # Initialize experiment monitoring
+        self.experiment_name = self.config["tracking"]["experiment_name"]
+        # self.monitor = Monitor(use_mlflow=self.config["tracking"]["use_mlflow"])
 
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
+        # Initialize model wrapper
+        self.model_wrapper = ModelWrapper(model=self.model,
+                                          experiment_name=self.experiment_name,
+                                          use_mlflow=self.config["tracking"]["use_mlflow"])
 
-    def training_step(self, batch, batch_idx):
-        lr, hr = batch
-        sr = self(lr)
-        loss = F.mse_loss(sr, hr, reduction="mean")
+        # Select device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        logger.info(f'Using device: {self.device}')
 
-        # metrics
-        mae = metrics.mae(sr, hr)
-        psnr = metrics.psnr(sr, hr)
-
-        # Logs
-        if self.use_mlflow:
-            self.writer.log_metric_step("train_loss", float(loss), batch_idx)
-            self.writer.log_metric_step("train_mae", float(mae), batch_idx)
-            self.writer.log_metric_step("train_psnr", float(psnr), batch_idx)
+        # Define trainer
+        if self.device.type == 'cuda':
+            self.trainer = pl.Trainer(accelerator='gpu', devices=1)
         else:
-            self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-            self.log("train_mae", mae, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-            self.log("train_psnr", psnr, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        return loss
+            self.trainer = pl.Trainer(accelerator='cpu', max_epochs=self.config["model"]["max_epochs"])
 
-    def validation_step(self, batch, batch_idx):
-        lr, hr = batch
-        sr = self(lr)
-        loss = F.mse_loss(sr, hr, reduction="mean")
+    def load_dataset(self) -> Dict[str, Dict[str, DataLoader]]:
+        # Place holder for dataset loader
+        dataset_dict = {}
 
-        # metrics
-        mae = metrics.mae(sr, hr)
-        psnr = metrics.psnr(sr, hr)
+        # Initialize dataset
+        dataset_selector = DatasetSelector(self.config["dataset"]["scale_factor"])
 
-        # Logs
-        if self.use_mlflow:
-            self.writer.log_metric_step("val_loss", float(loss), batch_idx)
-            self.writer.log_metric_step("val_mae", float(mae), batch_idx)
-            self.writer.log_metric_step("val_psnr", float(psnr), batch_idx)
-        else:
-            self.log("val_loss", loss, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
-            self.log("val_mae", mae, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
-            self.log("val_psnr", psnr, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
+        def load_dataset_split(dataset_name_list: List[str], split_name: str):
+            dataset_loader_dict = {}
+            for dataset_name in dataset_name_list:
+                dataset = dataset_selector.select_dataset(dataset_name)
+                train_dataloader = DataLoader(dataset,
+                                              batch_size=self.config["dataset"][f"{split_name}_batch_size"])
+                dataset_loader_dict[dataset_name] = train_dataloader
+            return CombinedLoader(dataset_loader_dict)
 
-        return loss
+        # Load train, val and test dataset
+        dataset_dict["train"] = load_dataset_split(self.config["dataset"]["train_dataset_names"], "train")
+        dataset_dict["val"] = load_dataset_split(self.config["dataset"]["val_dataset_names"], "val")
+        dataset_dict["test"] = load_dataset_split(self.config["dataset"]["test_dataset_names"], "test")
 
-    def test_step(self, batch, batch_idx):
-        lr, hr = batch
-        sr = self(lr)
-        loss = F.mse_loss(sr, hr, reduction="mean")
+        return dataset_dict
 
-        # metrics
-        mae = metrics.mae(sr, hr)
-        psnr = metrics.psnr(sr, hr)
+    def train(self, train_dataset_loader_dict: dict, val_dataset_loader_dict: dict):
+        """
+        Run the training process and save the model.
+        """
+        # Train model
+        self.trainer.fit(
+            self.model_wrapper,
+            train_dataloaders=train_dataset_loader_dict,
+            val_dataloaders=val_dataset_loader_dict
+        )
 
-        # Logs
-        if self.use_mlflow:
-            self.writer.log_metric("test_loss", float(loss))
-            self.writer.log_metric("test_mae", float(mae))
-            self.writer.log_metric("test_psnr", float(psnr))
-        else:
-            self.log("test_loss", loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
-            self.log("test_mae", mae, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
-            self.log("test_psnr", psnr, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
+        # Save model
+        self.model_wrapper.save_model()
 
-        return loss
+    def test(self, test_dataset_loader_dict: dict):
+        """
+        Run the test process.
+        :return:
+        """
+        # Test model
+        self.trainer.test(self.model_wrapper, test_dataset_loader_dict)
 
-    def save_model(self):
-        torch.save(self.state_dict(), self.model_file_path)
+        # Terminate MLFlow Process
+        if self.model_wrapper.use_mlflow:
+            self.model_wrapper.writer.set_terminated()
 
-        # Push to MLFlow
-        self.writer.log_model(self.model, self.model_name)
-        self.writer.log_artifact(self.model_file_path)
+        # Load loading model
+        test_model_wrapper = ModelWrapper(self.model,
+                                          experiment_name=self.config["tracking"]["experiment_name"],
+                                          use_mlflow=False)
 
-    def load_model(self, model_path: str):
-        self.load_state_dict(torch.load(model_path))
+        test_model_wrapper.load_model(self.model_wrapper.model_file_path)
+
+        # Test inference
+        x = torch.randn(1, 3, 128, 128)
+        model = test_model_wrapper.model
+        output_train = self.model_wrapper.model(x)
+        output_test = model(x)
 
 
 if __name__ == '__main__':
-    scale_factor = 2
+    experiment_runner = ExperimentRunner(env_file_path=".env",
+                                         config_file_path="config/srcnn.json")
 
-    # Setup dataloaders
-    train_dataset = BSDS100(scale_factor=scale_factor)
-    val_dataset = Set14(scale_factor=scale_factor)
-    test_dataset = Set5(scale_factor=scale_factor)
-    train_dataloader = DataLoader(train_dataset, batch_size=32)
-    val_dataloader = DataLoader(val_dataset, batch_size=1)
-    test_dataloader = DataLoader(test_dataset, batch_size=1)
+    dataset_loader = experiment_runner.load_dataset()
 
-    # Define model
-    channels = 3 if train_dataset.color_space == "RGB" else 1
-    model = SRCNN(scale_factor, channels)
-    module = Module(model,
-                    config_file_path=".env",
-                    experiment_name="Image Super Resolution",
-                    use_mlflow=True)
+    experiment_runner.train(train_dataset_loader_dict=dataset_loader["train"],
+                            val_dataset_loader_dict=dataset_loader["val"])
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print('Using device:', device)
-    # Additional Info when using cuda
-    if device.type == 'cuda':
-        trainer = pl.Trainer(accelerator='gpu', devices=1)
-    else:
-        trainer = pl.Trainer(accelerator='cpu', max_epochs=2)
-    with mlflow.start_run() as run:
-        mlflow.pytorch.log_model(model, module.model_name)
-
-    # Train model
-    x = torch.randn(1, 3, 128, 128)
-    output_initial = module.model(x)
-    trainer.fit(
-        module,
-        train_dataloader,
-        val_dataloader,
-    )
-
-    # Save model
-    module.save_model()
-
-    # Test model
-    trainer.test(module, test_dataloader)
-
-    # Load model
-    TestModule = Module(model,
-                        config_file_path=".env",
-                        experiment_name="Image Super Resolution",
-                        use_mlflow=False)
-
-    TestModule.load_model(module.model_file_path)
-
-    if module.use_mlflow:
-        module.writer.set_terminated()
-
-    # Inference
-    model = TestModule.model
-    output_train = module.model(x)
-    output_test = model(x)
+    experiment_runner.test(test_dataset_loader_dict=dataset_loader["test"])

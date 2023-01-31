@@ -1,0 +1,42 @@
+{
+    "model": {
+        "name": "SRCNN",
+        "max_epochs": 30
+    },
+    "dataset": {
+        "scale_factor": 2,
+        "train_dataset_names": ["BSDS100", "Set5"],
+        "val_dataset_names": ["Set5"],
+        "test_dataset_names": ["Set5"],
+        "train_batch_size": 32,
+        "val_batch_size": 1,
+        "test_batch_size": 1
+    },
+    "tracking": {
+        "use_mlflow": true,
+        "experiment_name": "Image Super Resolution",
+        "run_name": "srcnn",
+        "log_dir": "logs",
+        "checkpoint_dir": "checkpoints",
+        "checkpoint_freq": 1,
+        "save_best_only": true,
+        "save_weights_only": true,
+        "monitor": "val_psnr",
+        "mode": "max",
+        "verbose": 1
+    },
+    "optimizer": {
+        "name": "Adam",
+        "lr": 0.001,
+        "beta_1": 0.9,
+        "beta_2": 0.999,
+        "epsilon": 1e-08,
+        "decay": 0.0,
+        "amsgrad": false
+    },
+    "metrics": [
+        "mse",
+        "mae",
+        "psnr"
+    ]
+}
