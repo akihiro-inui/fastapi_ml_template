@@ -6,11 +6,9 @@ import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.trainer.trainer import CombinedLoader
-from pytorch_lightning.loggers import MLFlowLogger
 
 from ml.src.models.model_wrapper import ModelWrapper
 from ml.src.models.model_selector import ModelSelector
-from ml.src.monitors.mlflow_monitor import MLFlowMonitor
 from ml.src.datasets.dataset_selector import DatasetSelector
 from common_tools.src.file_handler import load_json_file
 from common_tools.src.config_loader import load_env_file
@@ -36,16 +34,10 @@ class ExperimentRunner:
 
         mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI"))
         mlflow.set_experiment(self.config["monitoring"]["experiment_name"])
+        experiment_id = mlflow.get_experiment_by_name(self.config["monitoring"]["experiment_name"]).experiment_id
 
         # Initialize experiment monitoring
-        # if self.config["monitoring"]["use_mlflow"]:
-        #     # self.logger = MLFlowLogger(tracking_uri=os.environ.get("MLFLOW_TRACKING_URI"),
-        #     #                            artifact_location=os.environ.get("MLFLOW_ARTIFACT_LOCATION"),
-        #     #                            experiment_name=self.config["monitoring"]["experiment_name"],
-        #     #                            run_name=self.config["monitoring"]["run_name"],
-        #     #                            log_model=True)
-        # else:
-        #     self.monitor = None
+        self.run_info = {"experiment_id": experiment_id}
 
         # Initialize model with wrapper
         self.model_wrapper = ModelWrapper(model=self.model)
@@ -107,6 +99,8 @@ class ExperimentRunner:
                 train_dataloaders=train_dataset_loader,
                 val_dataloaders=val_dataset_loader,
             )
+            self.run_info["run_id"] = run.info.run_id
+            self.run_info["run_name"] = run.info.run_name
 
     def test(self, test_dataset_loader: CombinedLoader) -> Dict[str, Any]:
         """
@@ -116,16 +110,8 @@ class ExperimentRunner:
         # Test model
         self.trainer.test(self.model_wrapper, test_dataset_loader)
 
-        # Terminate MLFlow Process
-        if self.model_wrapper.monitor:
-            self.model_wrapper.monitor.set_terminated()
-
-        # Load loading model
-        test_model_wrapper = ModelWrapper(self.model,
-                                          self.monitor
-                                          )
-
-        test_model = test_model_wrapper.load_model(f"{os.environ.get('MLFLOW_REGISTRY_URI')}/{self.monitor.experiment.experiment_id}/{self.monitor.run_id}")
+        # Load trained model
+        test_model = self.model_wrapper.load_model(f"{os.environ.get('MLFLOW_REGISTRY_URI')}/{self.run_info['experiment_id']}/{self.run_info['run_id']}/artifacts/model")
 
         # Test inference
         x = torch.randn(1, 3, 128, 128)
@@ -142,4 +128,4 @@ if __name__ == '__main__':
     experiment_runner.train(train_dataset_loader=dataset_loader["train"],
                             val_dataset_loader=dataset_loader["val"])
 
-    # experiment_runner.test(test_dataset_loader=dataset_loader["test"])
+    experiment_runner.test(test_dataset_loader=dataset_loader["test"])

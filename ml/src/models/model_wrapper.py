@@ -97,14 +97,9 @@ class ModelWrapper(LightningModule):
         """
         mlflow.pytorch.save_model(self.model, self.model_name)
 
-        # if self.monitor:
-        #     self.monitor.log_model(self.model, self.monitor.model_name)
-        #     # self.monitor.log_artifact()
-            # self.monitor.save_model(self.model, self.monitor.model_name)
-
-    def load_model(self, model_uri: str):
+    def load_model(self, model_file_path: str):
         """
         Load model from disk
-        :param model_uri: Path to model
+        :param model_file_path: Path to model
         """
-        return mlflow.pytorch.load_model(model_uri)
+        return mlflow.pytorch.load_model(model_file_path)

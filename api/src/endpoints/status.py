@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from api.src.utils.custom_logger import logger
+from common_tools.src.custom_logger import logger
 
 router = APIRouter()
 

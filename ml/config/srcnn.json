@@ -1,11 +1,11 @@
 {
     "model": {
         "name": "SRCNN",
-        "max_epochs": 1
+        "max_epochs": 200
     },
     "dataset": {
         "scale_factor": 2,
-        "train_dataset_names": ["BSDS100", "Set14"],
+        "train_dataset_names": ["BSDS100", "BSDS200", "BSDS300", "BSDS500", "Urban100", "Set14"],
         "val_dataset_names": ["Set5"],
         "test_dataset_names": ["Set5"],
         "train_batch_size": 32,

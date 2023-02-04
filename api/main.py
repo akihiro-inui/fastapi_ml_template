@@ -6,13 +6,16 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from api.src.endpoints import status, docs
-from api.src.utils.custom_logger import logger
-from api.src.utils.custom_error_handlers import BaseSystemError, PydanticError
-from api.src.utils.config_loader import load_config
+
+from common_tools.src.custom_logger import logger
+from common_tools.src.config_loader import load_env_file
+from common_tools.src.custom_error_handlers import PydanticError, BaseSystemError
 
 # Try to load environment variables from file
-load_config(".env")
+load_env_file('.env')
+
+from api.src.endpoints import status, docs, process
+
 
 # Create API Application
 app = FastAPI()
@@ -49,6 +52,7 @@ async def unknown_exception_handler(request, err):
 # Add endpoints
 app.include_router(docs.router)
 app.include_router(status.router)
+app.include_router(process.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -61,6 +65,6 @@ app.add_middleware(
 if __name__ == "__main__":
     uvicorn.run("main:app",
                 host="0.0.0.0",
-                port=int(os.environ.get("ENDPOINT_PORT")),
+                port=int(os.environ.get("API_PORT")),
                 log_level=os.environ.get("LOG_LEVEL"),
                 reload=True)
