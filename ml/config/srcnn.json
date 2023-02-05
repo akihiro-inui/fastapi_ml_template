@@ -1,6 +1,6 @@
 {
     "model": {
-        "name": "SRCNN",
+        "name": "EDSR",
         "max_epochs": 200
     },
     "dataset": {
