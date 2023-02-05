@@ -1,4 +1,4 @@
-import mlflow
+import mlflow as mf
 import torch
 import torch.nn
 import torch.nn.functional as F
@@ -45,7 +45,7 @@ class ModelWrapper(LightningModule):
             psnr = metrics.psnr(sr, hr)
 
             metrics_dict = {"loss": float(loss), "mae": float(mae), "psnr": float(psnr)}
-            mlflow.log_metrics(metrics_dict, step=batch_idx)
+            mf.log_metrics(metrics_dict, step=batch_idx)
 
         return loss
 
@@ -66,7 +66,7 @@ class ModelWrapper(LightningModule):
             psnr = metrics.psnr(sr, hr)
 
             metrics_dict = {"loss": float(loss), "mae": float(mae), "psnr": float(psnr)}
-            mlflow.log_metrics(metrics_dict, step=batch_idx)
+            mf.log_metrics(metrics_dict, step=batch_idx)
 
         return loss
 
@@ -87,7 +87,7 @@ class ModelWrapper(LightningModule):
             psnr = metrics.psnr(sr, hr)
 
             metrics_dict = {"loss": float(loss), "mae": float(mae), "psnr": float(psnr)}
-            mlflow.log_metrics(metrics_dict, step=batch_idx)
+            mf.log_metrics(metrics_dict, step=batch_idx)
 
         return loss
 
@@ -95,11 +95,11 @@ class ModelWrapper(LightningModule):
         """
         Save model to disk and log it to mlflow
         """
-        mlflow.pytorch.save_model(self.model, self.model_name)
+        mf.pytorch.save_model(self.model, self.model_name)
 
     def load_model(self, model_file_path: str):
         """
         Load model from disk
         :param model_file_path: Path to model
         """
-        return mlflow.pytorch.load_model(model_file_path)
+        return mf.pytorch.load_model(model_file_path)

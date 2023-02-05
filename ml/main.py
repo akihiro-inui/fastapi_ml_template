@@ -1,13 +1,13 @@
 import os
 from typing import List, Dict, Any
 
-import mlflow
+
 import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.trainer.trainer import CombinedLoader
 
-from ml.src.models.model_wrapper import ModelWrapper
+from ml.src.models.model_wrapper import ModelWrapper, mf
 from ml.src.models.model_selector import ModelSelector
 from ml.src.datasets.dataset_selector import DatasetSelector
 from common_tools.src.file_handler import load_json_file
@@ -36,9 +36,9 @@ class ExperimentRunner:
         self.model_selector = ModelSelector(self.config["dataset"]["scale_factor"])
         self.model = self.model_selector.select_model(self.config["model"]["name"])
 
-        mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI"))
-        mlflow.set_experiment(self.config["monitoring"]["experiment_name"])
-        experiment_id = mlflow.get_experiment_by_name(self.config["monitoring"]["experiment_name"]).experiment_id
+        mf.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI"))
+        mf.set_experiment(self.config["monitoring"]["experiment_name"])
+        experiment_id = mf.get_experiment_by_name(self.config["monitoring"]["experiment_name"]).experiment_id
 
         # Initialize experiment monitoring
         self.run_info = {"experiment_id": experiment_id}
@@ -97,8 +97,8 @@ class ExperimentRunner:
         Run the training process and save the model.
         """
         # Train model
-        mlflow.pytorch.autolog(registered_model_name=self.config["model"]["name"])
-        with mlflow.start_run(run_name=self.config["monitoring"]["run_name"]) as run:
+        mf.pytorch.autolog(registered_model_name=self.config["model"]["name"])
+        with mf.start_run(run_name=self.config["monitoring"]["run_name"]) as run:
             self.trainer.fit(
                 self.model_wrapper,
                 train_dataloaders=train_dataset_loader,
