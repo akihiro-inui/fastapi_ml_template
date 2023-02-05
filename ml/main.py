@@ -97,7 +97,7 @@ class ExperimentRunner:
         Run the training process and save the model.
         """
         # Train model
-        mlflow.pytorch.autolog()
+        mlflow.pytorch.autolog(registered_model_name=self.config["model"]["name"])
         with mlflow.start_run(run_name=self.config["monitoring"]["run_name"]) as run:
             self.trainer.fit(
                 self.model_wrapper,
