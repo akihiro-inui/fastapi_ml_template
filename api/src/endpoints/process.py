@@ -8,7 +8,6 @@ from fastapi.responses import JSONResponse
 from torchvision import transforms
 
 from common_tools.src.custom_logger import logger
-from common_tools.src.custom_logger import logger
 
 from api.src.utils.file_loader import load_model
 from api.src.utils.file_loader import load_image
@@ -32,6 +31,7 @@ def tensor_to_img(tensor):
     image = torch.squeeze(tensor)
     image = transforms.ToPILImage()(image)
     return image
+
 
 @router.post("/process")
 def process(file: UploadFile = File(...)) -> JSONResponse:

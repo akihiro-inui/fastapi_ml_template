@@ -5,12 +5,13 @@
     },
     "dataset": {
         "scale_factor": 2,
-        "train_dataset_names": ["BSDS100", "BSDS200", "BSDS300", "BSDS500", "Urban100", "Set14"],
+        "train_dataset_names": ["Set14"],
         "val_dataset_names": ["Set5"],
         "test_dataset_names": ["Set5"],
         "train_batch_size": 32,
         "val_batch_size": 1,
-        "test_batch_size": 1
+        "test_batch_size": 1,
+        "test_file_path": "./tests/test_files/bird_bad.png"
     },
     "monitoring": {
         "use_mlflow": true,

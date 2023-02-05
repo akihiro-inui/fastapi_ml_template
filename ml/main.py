@@ -14,6 +14,10 @@ from common_tools.src.file_handler import load_json_file
 from common_tools.src.config_loader import load_env_file
 from common_tools.src.custom_logger import logger
 
+import PIL
+from PIL import Image
+from torchvision import transforms
+
 
 class ExperimentRunner:
     def __init__(self, env_file_path: str, config_file_path: str):
@@ -49,6 +53,7 @@ class ExperimentRunner:
         # Initialize trainer
         if self.device.type == 'cuda':
             self.trainer = pl.Trainer(accelerator='gpu',
+                                      max_epochs=self.config["model"]["max_epochs"],
                                       devices=1)
         else:
             self.trainer = pl.Trainer(accelerator='cpu',
@@ -114,9 +119,42 @@ class ExperimentRunner:
         test_model = self.model_wrapper.load_model(f"{os.environ.get('MLFLOW_REGISTRY_URI')}/{self.run_info['experiment_id']}/{self.run_info['run_id']}/artifacts/model")
 
         # Test inference
-        x = torch.randn(1, 3, 128, 128)
-        test_output = test_model(x)
+        pil_image = Image.open(self.config["dataset"]["test_file_path"]).convert('RGB')
+        image_shape = pil_image.size
+
+        contents = self.load_image(256, pil_image)
+        test_output = test_model(contents)
+        image_tensor = torch.squeeze(test_output)
+        resize = transforms.Resize([image_shape[1], image_shape[0]])
+        resized_image = resize(image_tensor)
+        image = transforms.ToPILImage()(resized_image)
+        image.show()
+
+        # TODO: Store prediction result as image file
+        # mlflow.log_artifact("./tests/test_files/bird_bad.png")
         return test_output
+
+    def load_image(self, image_size_after_resize: int, pil_image: PIL.Image.Image, with_gpu: bool = False) -> torch.Tensor:
+        """
+        Load image from disk and return a tensor.
+        :param image_size_after_resize: Size of image after resizing.
+        :param pil_image: Image file content as PIL.Image.Image
+        :return: Image file content as tensor.
+        """
+        try:
+            resize = transforms.Resize([image_size_after_resize, image_size_after_resize])
+            img = resize(pil_image)
+            to_tensor = transforms.ToTensor()
+
+            # apply transformation and convert to Pytorch tensor
+            tensor = to_tensor(img)
+
+            # add another dimension at the front to get NCHW shape
+            tensor = tensor.unsqueeze(0)
+            return tensor.cuda() if with_gpu else tensor
+
+        except Exception as err:
+            raise Exception(f"Failed to load image file: {err}")
 
 
 if __name__ == '__main__':

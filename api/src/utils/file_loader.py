@@ -2,14 +2,10 @@ import os
 
 import PIL.Image
 import torch
-from torch.autograd import Variable
 from torchvision import transforms
-from PIL import Image
 
 from ml.src.models.model_selector import ModelSelector
 from ml.src.models.model_wrapper import ModelWrapper
-
-from typing import ByteString
 
 
 def load_model():
